@@ -1,0 +1,560 @@
+<title>ポットオッズ & EV ドリル</title>
+<style>
+  :root {
+    --ground: #15211D;
+    --felt-2: #1C2C26;
+    --surface: #21332C;
+    --line: #34453D;
+    --text: #ECE6D8;
+    --muted: #8C9A8F;
+    --accent: #E0B341;   /* gold chip */
+    --call: #D24B3E;     /* red chip */
+    --good: #4FAE74;     /* green chip */
+    --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(120% 90% at 50% -10%, #20322B 0%, var(--ground) 60%) fixed;
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 20px 80px;
+  }
+
+  /* ---- header ---- */
+  header {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 8px;
+  }
+  h1 {
+    font-size: clamp(28px, 7vw, 44px);
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    font-weight: 800;
+    margin: 0;
+    text-transform: uppercase;
+  }
+  .sub { color: var(--muted); margin: 10px 0 0; font-size: 14px; max-width: 46ch; }
+
+  /* ---- mode tabs ---- */
+  .modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 22px;
+  }
+  .mode-btn {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    background: var(--felt-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 8px 15px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .mode-btn:hover { color: var(--text); }
+  .mode-btn[aria-pressed="true"] {
+    color: var(--ground);
+    background: var(--accent);
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* ---- scoreboard ---- */
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 26px;
+  }
+  .stat { background: var(--felt-2); padding: 14px 16px; }
+  .stat .k {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .stat .v {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-variant-numeric: tabular-nums;
+    margin-top: 3px;
+    font-weight: 600;
+  }
+
+  /* ---- scenario card ---- */
+  .card {
+    background: linear-gradient(180deg, var(--surface), var(--felt-2));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 26px 24px;
+    position: relative;
+  }
+  .q-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  .prompt {
+    font-size: clamp(18px, 4.2vw, 22px);
+    line-height: 1.45;
+    margin: 0 0 6px;
+    font-weight: 500;
+  }
+  .prompt b {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .ask { color: var(--text); font-weight: 600; margin-top: 14px; }
+
+  /* board cards (poker) */
+  .cards-row { display: flex; gap: 7px; margin: 16px 0 4px; flex-wrap: wrap; }
+  .pcard {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 19px;
+    background: #F3EFE4;
+    color: #1b1b1b;
+    border-radius: 7px;
+    width: 38px; height: 52px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  }
+  .pcard.red { color: #c2362c; }
+
+  /* ---- answer input ---- */
+  .answer {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    margin-top: 22px;
+  }
+  .inputbox {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    background: var(--ground);
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    padding: 0 14px;
+    transition: border-color .15s;
+  }
+  .inputbox:focus-within { border-color: var(--accent); }
+  .inputbox input {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 22px;
+    font-variant-numeric: tabular-nums;
+    padding: 13px 0;
+    width: 100%;
+  }
+  .inputbox input:focus { outline: none; }
+  .inputbox .unit {
+    font-family: var(--mono);
+    color: var(--muted);
+    font-size: 16px;
+    padding-left: 6px;
+  }
+  button.primary {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ground);
+    background: var(--accent);
+    border: 0;
+    border-radius: 10px;
+    padding: 0 22px;
+    cursor: pointer;
+    transition: filter .15s;
+  }
+  button.primary:hover { filter: brightness(1.07); }
+  button.primary:active { transform: translateY(1px); }
+
+  /* ---- verdict / solution ---- */
+  .verdict {
+    margin-top: 20px;
+    border-radius: 12px;
+    padding: 18px 18px;
+    border: 1px solid var(--line);
+    background: var(--ground);
+    display: none;
+  }
+  .verdict.show { display: block; animation: rise .35s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .verdict.show, .verdict.show * { animation: none !important; }
+  }
+  .verdict .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .chip { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255,255,255,.25); }
+  .verdict.right .tag { color: var(--good); }
+  .verdict.right .chip { background: var(--good); }
+  .verdict.wrong .tag { color: var(--call); }
+  .verdict.wrong .chip { background: var(--call); }
+  .verdict .exact {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    color: var(--text);
+  }
+  .work {
+    margin: 12px 0 0;
+    padding: 12px 14px;
+    background: var(--felt-2);
+    border-radius: 9px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--muted);
+    overflow-x: auto;
+  }
+  .work b { color: var(--text); font-weight: 600; }
+  .work .em { color: var(--accent); }
+  .nextrow { margin-top: 16px; display: flex; gap: 10px; }
+  button.ghost {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 11px 20px;
+    cursor: pointer;
+  }
+  button.ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  .hint {
+    color: var(--muted);
+    font-size: 12.5px;
+    font-family: var(--mono);
+    margin-top: 16px;
+  }
+  kbd {
+    font-family: var(--mono);
+    background: var(--felt-2);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1px 6px;
+    font-size: 11px;
+    color: var(--text);
+  }
+  footer { color: var(--muted); font-size: 12px; margin-top: 30px; text-align: center; font-family: var(--mono); }
+  a { color: var(--accent); }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Pot Odds &amp; EV — 反射練習</p>
+    <h1>コールの数学を<br>一瞬で</h1>
+    <p class="sub">実戦シナリオがランダムに出ます。必要勝率・EV・アウツを口頭でやる速さで答えられるように。答え合わせには毎回、手計算の手順がつきます。</p>
+  </header>
+
+  <div class="modes" id="modes">
+    <button class="mode-btn" data-mode="odds" aria-pressed="true">必要勝率（ポットオッズ）</button>
+    <button class="mode-btn" data-mode="ev" aria-pressed="false">コールのEV</button>
+    <button class="mode-btn" data-mode="outs" aria-pressed="false">アウツ→勝率</button>
+    <button class="mode-btn" data-mode="mix" aria-pressed="false">ミックス</button>
+  </div>
+
+  <div class="board">
+    <div class="stat"><div class="k">連続正解</div><div class="v" id="streak">0</div></div>
+    <div class="stat"><div class="k">正答率</div><div class="v" id="acc">—</div></div>
+    <div class="stat"><div class="k">問題数</div><div class="v" id="count">0</div></div>
+  </div>
+
+  <div class="card">
+    <p class="q-label" id="qlabel">SITUATION</p>
+    <p class="prompt" id="prompt"></p>
+    <div class="cards-row" id="cards" style="display:none;"></div>
+    <p class="ask" id="ask"></p>
+
+    <form class="answer" id="form" autocomplete="off">
+      <label class="inputbox">
+        <input id="input" type="text" inputmode="decimal" placeholder="数値を入力" aria-label="答え" />
+        <span class="unit" id="unit">%</span>
+      </label>
+      <button class="primary" type="submit" id="submit">答え合わせ</button>
+    </form>
+
+    <div class="verdict" id="verdict" aria-live="polite">
+      <span class="tag"><span class="chip"></span><span id="tagtext"></span></span>
+      <div class="exact" id="exact"></div>
+      <pre class="work" id="work"></pre>
+      <div class="nextrow">
+        <button class="ghost" id="next" type="button">次の問題 →</button>
+      </div>
+    </div>
+
+    <p class="hint">許容誤差つきで判定（必要勝率±2%、EV±5%、勝率±2%）。<kbd>Enter</kbd> で答え合わせ → もう一度 <kbd>Enter</kbd> で次へ。</p>
+  </div>
+
+  <footer>口頭でやる速さを目標に。アウツは「ターン×4 / リバー×2」の概算ルールで十分。</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- utils ----
+  function ri(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function round(n, d) { var f = Math.pow(10, d); return Math.round(n * f) / f; }
+
+  var SUITS = [
+    { s: "♠", red: false }, { s: "♥", red: true },
+    { s: "♦", red: true }, { s: "♣", red: false }
+  ];
+  var RANKS = ["A","K","Q","J","T","9","8","7","6","5","4","3","2"];
+
+  // ---- state ----
+  var state = { mode: "odds", count: 0, correct: 0, streak: 0, current: null, answered: false };
+
+  var el = {
+    qlabel: document.getElementById("qlabel"),
+    prompt: document.getElementById("prompt"),
+    cards: document.getElementById("cards"),
+    ask: document.getElementById("ask"),
+    input: document.getElementById("input"),
+    unit: document.getElementById("unit"),
+    form: document.getElementById("form"),
+    submit: document.getElementById("submit"),
+    verdict: document.getElementById("verdict"),
+    tagtext: document.getElementById("tagtext"),
+    exact: document.getElementById("exact"),
+    work: document.getElementById("work"),
+    next: document.getElementById("next"),
+    streak: document.getElementById("streak"),
+    acc: document.getElementById("acc"),
+    count: document.getElementById("count")
+  };
+
+  // ---- generators ----
+  // Returns { label, prompt(html), ask, unit, cards(optional [{r,red}]), answer, tol, work(html) }
+
+  function genOdds() {
+    var pot = ri(2, 16) * 50;            // current pot
+    var bet = round(pot * pick([0.33, 0.5, 0.66, 0.75, 1]), 0); // villain bet
+    var toCall = bet;
+    var finalPot = pot + bet + toCall;   // pot after we call
+    var need = toCall / finalPot * 100;
+    return {
+      label: "POT ODDS",
+      prompt: "ポットは <b>" + pot + "</b>。相手が <b>" + bet + "</b> をベットした。",
+      ask: "コールするのに最低限必要な勝率は？",
+      unit: "%",
+      answer: need,
+      tol: 2,
+      work:
+        "コール額 = <b>" + toCall + "</b>\n" +
+        "コール後の総ポット = " + pot + " + " + bet + " + " + toCall + " = <b>" + finalPot + "</b>\n" +
+        "必要勝率 = コール額 ÷ 総ポット\n" +
+        "         = " + toCall + " ÷ " + finalPot + " = <span class='em'>" + round(need, 1) + "%</span>"
+    };
+  }
+
+  function genEV() {
+    var pot = ri(2, 14) * 50;
+    var bet = round(pot * pick([0.5, 0.66, 0.75, 1]), 0);
+    var toCall = bet;
+    var winPot = pot + bet + toCall;     // what we collect if we win (includes our call)
+    var winPct = ri(20, 70);
+    var p = winPct / 100;
+    // EV = p*(pot+bet) - (1-p)*toCall   [net chips, our call already excluded from winnings]
+    var ev = p * (pot + bet) - (1 - p) * toCall;
+    return {
+      label: "EXPECTED VALUE",
+      prompt: "ポット <b>" + pot + "</b>、相手のベット <b>" + bet + "</b> にコール（<b>" + toCall + "</b>）するか検討中。勝つ確率は <b>" + winPct + "%</b> と読んだ。",
+      ask: "このコールのEV（期待値・チップ）は？",
+      unit: "chips",
+      answer: ev,
+      tol: Math.max(5, Math.abs(ev) * 0.05),
+      work:
+        "勝ったとき得る額 = ポット + 相手ベット = " + pot + " + " + bet + " = <b>" + (pot + bet) + "</b>\n" +
+        "負けたとき失う額 = コール額 = <b>" + toCall + "</b>\n" +
+        "EV = 勝率×獲得 − 敗率×損失\n" +
+        "   = " + p + "×" + (pot + bet) + " − " + round(1 - p, 2) + "×" + toCall + "\n" +
+        "   = " + round(p * (pot + bet), 1) + " − " + round((1 - p) * toCall, 1) +
+        " = <span class='em'>" + round(ev, 1) + " chips</span>\n" +
+        (ev >= 0 ? "→ プラスEV。コールが正解。" : "→ マイナスEV。フォールドが正解。")
+    };
+  }
+
+  function dealCards(n) {
+    var used = {}, out = [];
+    while (out.length < n) {
+      var r = pick(RANKS), su = pick(SUITS);
+      var key = r + su.s;
+      if (used[key]) continue;
+      used[key] = 1;
+      out.push({ r: r, red: su.red, s: su.s });
+    }
+    return out;
+  }
+
+  function genOuts() {
+    var scenarios = [
+      { name: "フラッシュドロー", outs: 9 },
+      { name: "オープンエンドのストレートドロー", outs: 8 },
+      { name: "ガットショット（インサイドストレート）", outs: 4 },
+      { name: "2オーバーカード", outs: 6 },
+      { name: "フラッシュ＋ストレートのコンボドロー", outs: 15 },
+      { name: "セットへのドロー（ポケットペア）", outs: 2 },
+      { name: "トップペア→ツーペア/トリップス", outs: 5 }
+    ];
+    var sc = pick(scenarios);
+    var street = pick(["turn", "river"]); // turn: 2 cards to come (×4), river: 1 card (×2)
+    var mult = street === "turn" ? 4 : 2;
+    var approx = sc.outs * mult; // rule-of-thumb answer
+    var streetJa = street === "turn" ? "フロップ（あと2枚めくれる）" : "ターン（あと1枚めくれる）";
+    var cards = dealCards(street === "turn" ? 3 : 4);
+    return {
+      label: "OUTS → EQUITY",
+      prompt: "現在 <b>" + streetJa + "</b>。あなたのドローは <b>" + sc.name + "</b>（アウツ " + sc.outs + " 枚）。",
+      ask: "完成する概算の勝率は？（2/4ルール）",
+      unit: "%",
+      cards: cards,
+      answer: approx,
+      tol: 2,
+      work:
+        "ルール: " + (street === "turn" ? "あと2枚 → アウツ ×4" : "あと1枚 → アウツ ×2") + "\n" +
+        "アウツ = <b>" + sc.outs + "</b>\n" +
+        sc.outs + " × " + mult + " = <span class='em'>" + approx + "%</span>\n" +
+        (sc.outs > 8 && street === "turn"
+          ? "※アウツが多い時は ×4 が少し過大。正確には約 " + round((1 - (47 - sc.outs) / 47 * (46 - sc.outs) / 46) * 100, 0) + "%。"
+          : "")
+    };
+  }
+
+  function generate() {
+    var m = state.mode;
+    if (m === "mix") m = pick(["odds", "ev", "outs"]);
+    if (m === "odds") return genOdds();
+    if (m === "ev") return genEV();
+    return genOuts();
+  }
+
+  // ---- render ----
+  function renderStats() {
+    el.streak.textContent = state.streak;
+    el.count.textContent = state.count;
+    el.acc.textContent = state.count ? Math.round(state.correct / state.count * 100) + "%" : "—";
+  }
+
+  function newQuestion() {
+    var q = generate();
+    state.current = q;
+    state.answered = false;
+    el.qlabel.textContent = q.label;
+    el.prompt.innerHTML = q.prompt;
+    el.ask.textContent = q.ask;
+    el.unit.textContent = q.unit;
+    el.input.value = "";
+    el.verdict.className = "verdict";
+    el.submit.disabled = false;
+
+    if (q.cards) {
+      el.cards.style.display = "flex";
+      el.cards.innerHTML = q.cards.map(function (c) {
+        return '<span class="pcard' + (c.red ? " red" : "") + '">' + c.r + c.s + '</span>';
+      }).join("");
+    } else {
+      el.cards.style.display = "none";
+      el.cards.innerHTML = "";
+    }
+    el.input.focus();
+  }
+
+  function check() {
+    if (state.answered) { newQuestion(); return; }
+    var raw = el.input.value.trim().replace(/[%＋,，\s]/g, "").replace("chips", "");
+    if (raw === "" || isNaN(parseFloat(raw))) { el.input.focus(); return; }
+    var val = parseFloat(raw);
+    var q = state.current;
+    var ok = Math.abs(val - q.answer) <= q.tol;
+
+    state.count++;
+    if (ok) { state.correct++; state.streak++; } else { state.streak = 0; }
+    renderStats();
+
+    el.verdict.className = "verdict show " + (ok ? "right" : "wrong");
+    el.tagtext.textContent = ok ? "正解" : "おしい！";
+    el.exact.textContent = "正確な答え: " + round(q.answer, 1) + " " + q.unit +
+      "  （あなた: " + val + " ／ 許容 ±" + round(q.tol, 1) + "）";
+    el.work.innerHTML = q.work;
+    el.submit.disabled = true;
+    state.answered = true;
+    el.next.focus();
+  }
+
+  // ---- events ----
+  el.form.addEventListener("submit", function (e) { e.preventDefault(); check(); });
+  el.next.addEventListener("click", newQuestion);
+
+  document.getElementById("modes").addEventListener("click", function (e) {
+    var btn = e.target.closest(".mode-btn");
+    if (!btn) return;
+    state.mode = btn.getAttribute("data-mode");
+    Array.prototype.forEach.call(this.querySelectorAll(".mode-btn"), function (b) {
+      b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+    });
+    newQuestion();
+  });
+
+  // Enter on verdict -> next
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && state.answered && document.activeElement !== el.input) {
+      e.preventDefault(); newQuestion();
+    }
+  });
+
+  renderStats();
+  newQuestion();
+})();
+</script>
