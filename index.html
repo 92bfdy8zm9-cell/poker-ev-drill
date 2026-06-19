@@ -324,6 +324,8 @@
     <button class="mode-btn" data-mode="odds" aria-pressed="true">必要勝率（ポットオッズ）</button>
     <button class="mode-btn" data-mode="ev" aria-pressed="false">コールのEV</button>
     <button class="mode-btn" data-mode="outs" aria-pressed="false">アウツ→勝率</button>
+    <button class="mode-btn" data-mode="spr" aria-pressed="false">SPR計算</button>
+    <button class="mode-btn" data-mode="mdf" aria-pressed="false">MDF・ブラフ頻度</button>
     <button class="mode-btn" data-mode="mix" aria-pressed="false">ミックス</button>
   </div>
 
@@ -496,11 +498,70 @@
     };
   }
 
+  function genSPR() {
+    var pot = ri(2, 12) * 50;          // フロップ時点のポット
+    var stack = ri(2, 40) * 50;        // 有効スタック（残り）
+    var spr = stack / pot;
+    var interp = spr < 3
+      ? "ローSPR（3未満）: トップペア＋やオーバーペアでもスタックを入れやすい。"
+      : spr <= 6
+        ? "ミドルSPR（3〜6）: 強い1ペア〜2ペアで慎重に。コミット判断が一番難しい帯。"
+        : "ハイSPR（6超）: セット・2ペア以上の強さが欲しい。1ペアでスタックは入れない。";
+    return {
+      label: "SPR（スタック・トゥ・ポット比）",
+      prompt: "フロップ時点でポット <b>" + pot + "</b>、有効スタック <b>" + stack + "</b>。",
+      ask: "SPRは？",
+      unit: "",
+      answer: spr,
+      tol: Math.max(0.3, spr * 0.08),
+      work:
+        "SPR = 有効スタック ÷ ポット\n" +
+        "    = " + stack + " ÷ " + pot + " = <span class='em'>" + round(spr, 1) + "</span>\n" +
+        interp
+    };
+  }
+
+  function genMDF() {
+    var pot = ri(2, 16) * 50;
+    var bet = round(pot * pick([0.33, 0.5, 0.66, 0.75, 1, 1.5]), 0);
+    var variant = pick(["defend", "bluff"]);
+    if (variant === "defend") {
+      var mdf = pot / (pot + bet) * 100;
+      return {
+        label: "MDF（最小ディフェンス頻度）",
+        prompt: "ポット <b>" + pot + "</b> に相手が <b>" + bet + "</b> をベットした。",
+        ask: "搾取されないために、最低どれだけの頻度で続行（コール/レイズ）すべき？",
+        unit: "%",
+        answer: mdf,
+        tol: 2,
+        work:
+          "MDF = ポット ÷ (ポット + ベット)\n" +
+          "    = " + pot + " ÷ " + (pot + bet) + " = <span class='em'>" + round(mdf, 1) + "%</span>\n" +
+          "→ これ未満しか守らないと、相手はどんな2枚でもブラフして得をする。"
+      };
+    }
+    var alpha = bet / (pot + bet) * 100;
+    return {
+      label: "ブラフのブレイクイーブン頻度",
+      prompt: "あなたがポット <b>" + pot + "</b> に <b>" + bet + "</b> をブラフベットする。",
+      ask: "このブラフが最低限ペイするには、相手が何%フォールドすればいい？",
+      unit: "%",
+      answer: alpha,
+      tol: 2,
+      work:
+        "必要フォールド率 = ベット ÷ (ポット + ベット)\n" +
+        "             = " + bet + " ÷ " + (pot + bet) + " = <span class='em'>" + round(alpha, 1) + "%</span>\n" +
+        "→ 相手がこれ以上フォールドすれば、ブラフは即プラスEV。"
+    };
+  }
+
   function generate() {
     var m = state.mode;
-    if (m === "mix") m = pick(["odds", "ev", "outs"]);
+    if (m === "mix") m = pick(["odds", "ev", "outs", "spr", "mdf"]);
     if (m === "odds") return genOdds();
     if (m === "ev") return genEV();
+    if (m === "spr") return genSPR();
+    if (m === "mdf") return genMDF();
     return genOuts();
   }
 
