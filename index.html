@@ -294,6 +294,63 @@
   footer { color: var(--muted); font-size: 12px; margin-top: 30px; text-align: center; font-family: var(--mono); }
   a { color: var(--accent); }
 
+  /* ---- リバー局面モード ---- */
+  .scn-meta {
+    font-family: var(--mono); font-size: 12.5px; color: var(--muted);
+    letter-spacing: 0.03em; margin-bottom: 14px;
+    display: flex; flex-wrap: wrap; gap: 5px 16px;
+  }
+  .scn-meta b { color: var(--accent); font-weight: 700; }
+  .scn-meta .conf { color: var(--text); }
+  .scn-history {
+    background: var(--ground); border: 1px solid var(--line);
+    border-radius: 10px; padding: 6px 14px; margin-bottom: 18px;
+  }
+  .scn-history .row {
+    font-size: 13px; line-height: 1.55; color: var(--text);
+    padding: 8px 0; border-bottom: 1px solid var(--felt-2);
+  }
+  .scn-history .row:last-child { border-bottom: 0; }
+  .scn-history .st {
+    font-family: var(--mono); color: var(--accent);
+    font-size: 10.5px; letter-spacing: 0.1em; display: block; margin-bottom: 1px;
+  }
+  .scn-section-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 8px;
+  }
+  .scn-cardgroup { margin-bottom: 16px; }
+  .scn-facing { font-weight: 600; font-size: 16px; margin: 4px 0 18px; line-height: 1.5; }
+  .scn-facing b { font-family: var(--mono); color: var(--call); }
+  .scn-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .opt-btn {
+    font-family: var(--sans); font-weight: 700; font-size: 15px; color: var(--text);
+    background: var(--felt-2); border: 1.5px solid var(--line); border-radius: 11px;
+    padding: 16px 8px; cursor: pointer; text-align: center;
+    transition: border-color .15s, background .15s, opacity .15s;
+  }
+  .opt-btn:hover { border-color: var(--accent); }
+  .opt-btn:disabled { cursor: default; }
+  .opt-btn .mk { font-size: 17px; margin-right: 5px; }
+  .opt-btn.v-right { border-color: var(--good); background: rgba(79,174,116,.12); }
+  .opt-btn.v-ok { border-color: var(--accent); background: rgba(224,179,65,.12); }
+  .opt-btn.v-bad { border-color: var(--call); opacity: .65; }
+  .opt-btn.chosen { box-shadow: 0 0 0 2px var(--text); }
+  .scn-skip { margin-top: 12px; width: 100%; }
+  .scn-verdict { display: none; margin-top: 18px; }
+  .scn-verdict.show { display: block; animation: rise .35s ease; }
+  .scn-verdict .head { font-family: var(--mono); font-weight: 700; font-size: 15px; margin-bottom: 12px; }
+  .scn-verdict .ev {
+    font-family: var(--mono); font-size: 12.5px; color: var(--muted); line-height: 1.8;
+    background: var(--felt-2); border-radius: 9px; padding: 11px 13px; margin-bottom: 14px;
+  }
+  .scn-verdict .ev b { color: var(--text); }
+  .scn-block { margin-bottom: 13px; font-size: 13.5px; line-height: 1.7; color: var(--text); }
+  .scn-block .lbl {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 3px;
+  }
+
   /* ---- スマホ最適化 ---- */
   @media (max-width: 560px) {
     .wrap { padding: 20px 14px calc(40px + env(safe-area-inset-bottom)); }
@@ -327,6 +384,7 @@
     <button class="mode-btn" data-mode="spr" aria-pressed="false">SPR計算</button>
     <button class="mode-btn" data-mode="mdf" aria-pressed="false">MDF・ブラフ頻度</button>
     <button class="mode-btn" data-mode="mix" aria-pressed="false">ミックス</button>
+    <button class="mode-btn" data-mode="river" aria-pressed="false">🎯 リバー局面</button>
   </div>
 
   <div class="board">
@@ -358,7 +416,35 @@
       </div>
     </div>
 
-    <p class="hint">許容誤差つきで判定（必要勝率±2%、EV±5%、勝率±2%）。<kbd>Enter</kbd> で答え合わせ → もう一度 <kbd>Enter</kbd> で次へ。</p>
+    <p class="hint" id="mathHint">許容誤差つきで判定（必要勝率±2%、EV±5%、勝率±2%）。<kbd>Enter</kbd> で答え合わせ → もう一度 <kbd>Enter</kbd> で次へ。</p>
+
+    <!-- ===== リバー局面モード ===== -->
+    <div id="scenario" style="display:none;">
+      <div class="scn-meta" id="scnMeta"></div>
+      <div class="scn-history" id="scnHistory"></div>
+
+      <p class="scn-section-label">あなたの手札</p>
+      <div class="cards-row scn-cardgroup" id="scnHero"></div>
+      <p class="scn-section-label">ボード（リバー）</p>
+      <div class="cards-row scn-cardgroup" id="scnBoard"></div>
+
+      <p class="scn-facing" id="scnFacing"></p>
+      <div class="scn-options" id="scnOptions"></div>
+      <button class="ghost scn-skip" id="scnSkip" type="button">スキップ →</button>
+
+      <div class="scn-verdict" id="scnVerdict" aria-live="polite">
+        <div class="head" id="scnHead"></div>
+        <div class="ev" id="scnEv"></div>
+        <div class="scn-block"><span class="lbl">相手の想定レンジ</span><span id="scnRange"></span></div>
+        <div class="scn-block"><span class="lbl">エクイティ / 必要勝率</span><span id="scnEquity"></span></div>
+        <div class="scn-block"><span class="lbl">解説</span><span id="scnExp"></span></div>
+        <div class="nextrow">
+          <button class="ghost" id="scnNext" type="button">次の局面 →</button>
+        </div>
+      </div>
+
+      <p class="hint" id="scnHint">EV最高＝⭕、損失わずか＝△（どちらも正解）、明確な損＝❌。覚えた局面は「スキップ」で飛ばせます（成績に影響なし）。</p>
+    </div>
   </div>
 
   <footer>口頭でやる速さを目標に。アウツは「ターン×4 / リバー×2」の概算ルールで十分。</footer>
@@ -618,9 +704,195 @@
     el.next.focus();
   }
 
+  // ===== リバー局面モード（パイロット） =====
+  // 各問題は「EV差が大きく結論が揺るがない局面」のみ。ライン整合性・エクイティ検算済み。
+  // verdicts: right=⭕(最善) / ok=△(損失わずか・正解扱い) / bad=❌
+  var SCN = [
+    {
+      id: 1, format: "キャッシュ 100BB", heroPos: "BTN", vilPos: "BB",
+      conf: "🟢 理論上明確", tag: "ブラフキャッチ",
+      hero: ["A♥", "J♠"], board: ["J♦", "8♣", "3♥", "2♠", "5♦"],
+      history: [
+        { st: "プリフロップ", txt: "BTN（Hero）が2.5bbオープン → BBコール" },
+        { st: "フロップ J♦ 8♣ 3♥ ／ pot 5bb", txt: "BBチェック → Hero 3bbベット → BBコール" },
+        { st: "ターン 2♠ ／ pot 11bb", txt: "両者チェック" },
+        { st: "リバー 5♦ ／ pot 11bb", txt: "BBが 3bb ベット（あなたの番）" }
+      ],
+      facing: "あなたはトップペア（J、Aキッカー）。BBの <b>3bb</b> ベット（pot 11bb）にどうする？",
+      options: ["Fold", "Call", "Raise", "All-in"],
+      verdicts: { "Fold": "bad", "Call": "right", "Raise": "bad", "All-in": "bad" },
+      evNotes: "Call: <b>大きく +EV（約+7bb）</b><br>Fold: 0bb（トップペアを降りる大きなミス）<br>Raise / All-in: −EV（勝てる手は降り、負けてる手にしかコールされない）",
+      range: "薄いバリュー（J8・85sの2ペア、たまにJx）と、空振りしたドロー（64s・76s・97sなど）のブラフ。安いリバーリードはブラフ比率が高い。",
+      equity: "必要勝率 = 3 ÷ (11 + 3 + 3) = <b>17.6%</b>。トップペア（Jのトップ・Aキッカー）はブラフと格下ペアに大きく勝ち、勝率は約60%超 → コールが明確に +EV。",
+      exp: "5.7:1という破格のオッズ。トップペアでこのオッズを降りるのは典型的な弱気ミス。レイズはバリューにならない（格上だけ残り格下を降ろす）。素直にコール。"
+    },
+    {
+      id: 2, format: "キャッシュ 150BB", heroPos: "CO", vilPos: "BB",
+      conf: "🟢 理論上明確", tag: "ヒーローコールの誘惑",
+      hero: ["A♠", "K♠"], board: ["Q♠", "9♠", "4♥", "7♦", "2♣"],
+      history: [
+        { st: "プリフロップ", txt: "CO（Hero）が2.5bbオープン → BBコール" },
+        { st: "フロップ Q♠ 9♠ 4♥ ／ pot 5.5bb", txt: "BBチェック → Hero 4bbベット → BBコール" },
+        { st: "ターン 7♦ ／ pot 13.5bb", txt: "BBチェック → Hero 10bbベット（バレル）→ BBコール" },
+        { st: "リバー 2♣ ／ pot 33.5bb", txt: "BBが 33bb オールイン（ポットサイズ）" }
+      ],
+      facing: "ナッツフラッシュドローは空振り、手は A ハイ（ノーペア）。BBの <b>33bb オールイン</b>（pot 33.5bb）にどうする？",
+      options: ["Fold", "Call"],
+      verdicts: { "Fold": "right", "Call": "bad" },
+      evNotes: "Fold: 0bb（正しい撤退）<br>Call: <b>−約20bb</b>（必要勝率33%に A ハイの勝率が遠く届かない）",
+      range: "ストレート（68s・T8sの一部）、2ペア／セット（Q9・99・QQ等）中心のバリューに、空振りドローのブラフが少々。あなたが A♠K♠ を持つためスペードのフラッシュと AA/AK を強くブロックしており、相手のブラフ・バリューはさらに限定的。",
+      equity: "必要勝率 = 33 ÷ (33.5 + 33 + 33) = <b>33.2%</b>。A ハイはバリューに1つも勝てず、ブラフにしか勝てない。勝率はおおむね15〜20%で必要勝率に届かない → フォールド。",
+      exp: "空振りしたドローを『強い絡みだったから』とヒーローコールするのは典型的な負けパターン。ノーペアでポットサイズのオールインを受ける理由はない。ブロッカーがあっても相手のバリューが濃すぎる。"
+    },
+    {
+      id: 3, format: "キャッシュ 100BB", heroPos: "BB", vilPos: "BTN",
+      conf: "🟢 理論上明確", tag: "バリュー（ナッツ級）",
+      hero: ["7♥", "6♥"], board: ["8♥", "5♣", "2♦", "9♣", "J♦"],
+      history: [
+        { st: "プリフロップ", txt: "BTNが2.5bbオープン → BB（Hero）コール" },
+        { st: "フロップ 8♥ 5♣ 2♦ ／ pot 5bb", txt: "BBチェック → BTN 3bbベット → BBコール（オープンエンド）" },
+        { st: "ターン 9♣ ／ pot 11bb", txt: "BBチェック → BTN 8bbベット → BBコール（ストレート完成・トラップ）" },
+        { st: "リバー J♦ ／ pot 27bb", txt: "BBチェック → BTNが 18bb ベット（あなたの番）" }
+      ],
+      facing: "あなたは 5-6-7-8-9 のストレート（実質ナッツ）。BTNの <b>18bb</b> ベット（pot 27bb）にどうする？",
+      options: ["Fold", "Call", "Raise", "All-in"],
+      verdicts: { "Fold": "bad", "Call": "ok", "Raise": "right", "All-in": "ok" },
+      evNotes: "Raise: <b>最大EV</b>（格下の2ペア・セット・トップペアからバリューを最大化）<br>Call: △ わずかに取りこぼし（正解扱い）<br>All-in: △ 大きすぎて格下を降ろしがち<br>Fold: 論外（ナッツ級を降りる）",
+      range: "BTNがリバーまで3連続でベットするバリュー：トップペア（AJ・KJ）、2ペア（J9）、セット（99・88・55）、オーバーペア（TT〜AA）。上回るのは T7 のストレートのみで、このラインにはまず存在しない。",
+      equity: "あなたのストレートは相手のバリューレンジのほぼ全てに勝つ（勝率95%超）。負けるのは T7（7-8-9-T-J）だけで、このラインにT7はほぼ無い → バリューレイズが最大EV。",
+      exp: "相手が自分からベットして“支払う気”を見せている好機。ナッツ級は受け身のコールで満足せず、レイズしてスタックを膨らませるのがバリューの基本。"
+    },
+    {
+      id: 4, format: "キャッシュ 100BB", heroPos: "BB", vilPos: "CO",
+      conf: "🟡 近似（サイズ判断を含む）", tag: "薄いバリュー",
+      hero: ["A♦", "5♦"], board: ["A♣", "5♣", "9♦", "2♥", "K♠"],
+      history: [
+        { st: "プリフロップ", txt: "COが2.5bbオープン → BB（Hero）コール" },
+        { st: "フロップ A♣ 5♣ 9♦ ／ pot 5.5bb", txt: "BBチェック → CO 3bbベット → BBコール（2ペア）" },
+        { st: "ターン 2♥ ／ pot 11.5bb", txt: "BBチェック → CO もチェック（諦め／ポットコントロール）" },
+        { st: "リバー K♠ ／ pot 11.5bb", txt: "あなたの番（先手）" }
+      ],
+      facing: "あなたは2ペア（A と 5）。ターンはチェックで回り、相手のレンジは弱め。先手のあなたはどうする？",
+      options: ["Check", "小ベット", "大ベット", "All-in"],
+      verdicts: { "Check": "bad", "小ベット": "right", "大ベット": "ok", "All-in": "bad" },
+      evNotes: "小ベット: <b>最大EV</b>（弱いAx・9x・リバーで出来たKxなど格下から薄く取る）<br>大ベット: △ サイズ過大で格下を降ろしがち<br>Check: 価値の取りこぼし<br>All-in: 論外（格下は全部降りる）",
+      range: "ターンをチェックで回した時点で相手は頭打ち（capped）。弱いAx（AQ〜AT・A-low）、9x、空振りドロー、リバーでペアになったKxなど。あなたの2ペアより強い手はほぼ無い。",
+      equity: "リバーで相手のレンジは頭打ち。あなたの2ペアは格下から薄くバリューを取れる。小さめサイズなら格下が降りずにコールしやすく、期待値が最大化する。",
+      exp: "『相手が弱い＝チェック』ではなく『相手が弱い＝薄く価値を取る』が正解。ただし大きく張ると格下が降りるので、コールしてもらえる小さめサイズが最善。サイズ判断は近似のため信頼度🟡。"
+    }
+  ];
+
+  var scnState = { order: [], pos: 0, answered: false };
+
+  function shuffle(a) {
+    var arr = a.slice();
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+  function cardSpan(c) {
+    var red = (c.indexOf("♥") >= 0 || c.indexOf("♦") >= 0);
+    return '<span class="pcard' + (red ? " red" : "") + '">' + c + "</span>";
+  }
+  function $(id) { return document.getElementById(id); }
+
+  function setRiverMode(on) {
+    ["prompt", "cards", "ask", "form", "verdict", "mathHint"].forEach(function (id) {
+      var n = $(id); if (n) n.style.display = on ? "none" : "";
+    });
+    $("scenario").style.display = on ? "block" : "none";
+  }
+
+  function renderScenario() {
+    var s = SCN[scnState.order[scnState.pos]];
+    scnState.answered = false;
+    el.qlabel.textContent = "RIVER 局面 #" + s.id + "（" + (scnState.pos + 1) + " / " + SCN.length + "）";
+    $("scnMeta").innerHTML =
+      "<span>" + s.format + "</span>" +
+      "<span>Hero: <b>" + s.heroPos + "</b></span>" +
+      "<span>相手: <b>" + s.vilPos + "</b></span>" +
+      '<span class="conf">信頼度 ' + s.conf + "</span>" +
+      "<span>種別: " + s.tag + "</span>";
+    $("scnHistory").innerHTML = s.history.map(function (h) {
+      return '<div class="row"><span class="st">' + h.st + "</span>" + h.txt + "</div>";
+    }).join("");
+    $("scnHero").innerHTML = s.hero.map(cardSpan).join("");
+    $("scnBoard").innerHTML = s.board.map(cardSpan).join("");
+    $("scnFacing").innerHTML = s.facing;
+
+    var opts = $("scnOptions");
+    opts.innerHTML = "";
+    s.options.forEach(function (o) {
+      var b = document.createElement("button");
+      b.className = "opt-btn"; b.type = "button";
+      b.textContent = o; b.setAttribute("data-opt", o);
+      opts.appendChild(b);
+    });
+    $("scnVerdict").className = "scn-verdict";
+    $("scnSkip").style.display = "";
+  }
+
+  function gradeScenario(option) {
+    if (scnState.answered) return;
+    var s = SCN[scnState.order[scnState.pos]];
+    var v = s.verdicts[option];
+    var correct = (v === "right" || v === "ok");
+
+    state.count++;
+    if (correct) { state.correct++; state.streak++; } else { state.streak = 0; }
+    renderStats();
+
+    Array.prototype.forEach.call($("scnOptions").querySelectorAll(".opt-btn"), function (b) {
+      var o = b.getAttribute("data-opt");
+      var ov = s.verdicts[o];
+      var mk = ov === "right" ? "⭕" : ov === "ok" ? "△" : "❌";
+      b.classList.add(ov === "right" ? "v-right" : ov === "ok" ? "v-ok" : "v-bad");
+      b.innerHTML = '<span class="mk">' + mk + "</span>" + o;
+      b.disabled = true;
+      if (o === option) b.classList.add("chosen");
+    });
+
+    var head = correct
+      ? (v === "right" ? "⭕ 正解（最善手）" : "△ 許容（ほぼ最善・正解扱い）")
+      : "❌ 不正解";
+    $("scnHead").textContent = head;
+    $("scnHead").style.color = correct ? "var(--good)" : "var(--call)";
+    $("scnEv").innerHTML = s.evNotes;
+    $("scnRange").textContent = s.range;
+    $("scnEquity").innerHTML = s.equity;
+    $("scnExp").textContent = s.exp;
+    $("scnVerdict").className = "scn-verdict show";
+    $("scnSkip").style.display = "none";
+    scnState.answered = true;
+    $("scnNext").focus();
+  }
+
+  function nextScenario() {
+    scnState.pos++;
+    if (scnState.pos >= scnState.order.length) {
+      scnState.order = shuffle(SCN.map(function (_, i) { return i; }));
+      scnState.pos = 0;
+    }
+    renderScenario();
+  }
+  function startRiver() {
+    scnState.order = shuffle(SCN.map(function (_, i) { return i; }));
+    scnState.pos = 0;
+    renderScenario();
+  }
+
   // ---- events ----
   el.form.addEventListener("submit", function (e) { e.preventDefault(); check(); });
   el.next.addEventListener("click", newQuestion);
+  $("scnOptions").addEventListener("click", function (e) {
+    var b = e.target.closest(".opt-btn");
+    if (!b || b.disabled) return;
+    gradeScenario(b.getAttribute("data-opt"));
+  });
+  $("scnSkip").addEventListener("click", nextScenario);
+  $("scnNext").addEventListener("click", nextScenario);
 
   document.getElementById("modes").addEventListener("click", function (e) {
     var btn = e.target.closest(".mode-btn");
@@ -629,12 +901,18 @@
     Array.prototype.forEach.call(this.querySelectorAll(".mode-btn"), function (b) {
       b.setAttribute("aria-pressed", b === btn ? "true" : "false");
     });
-    newQuestion();
+    if (state.mode === "river") { setRiverMode(true); startRiver(); }
+    else { setRiverMode(false); newQuestion(); }
   });
 
-  // Enter on verdict -> next
+  // Enter -> next
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Enter" && state.answered && document.activeElement !== el.input) {
+    if (e.key !== "Enter") return;
+    if (state.mode === "river") {
+      if (scnState.answered) { e.preventDefault(); nextScenario(); }
+      return;
+    }
+    if (state.answered && document.activeElement !== el.input) {
       e.preventDefault(); newQuestion();
     }
   });
