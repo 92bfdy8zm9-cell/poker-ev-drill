@@ -351,6 +351,34 @@
     text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 3px;
   }
 
+  /* ---- ポットオッズ ステップ2（アウツで届くか） ---- */
+  .step2 {
+    margin-top: 18px;
+    border-top: 1px dashed var(--line);
+    padding-top: 18px;
+    display: none;
+  }
+  .step2.show { display: block; animation: rise .3s ease; }
+  .step2-q { font-size: 15px; font-weight: 600; margin: 0 0 12px; line-height: 1.5; color: var(--text); }
+  .step2-q b { font-family: var(--mono); color: var(--accent); font-weight: 700; }
+  .step2-opts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .step2-verdict {
+    display: none;
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: var(--felt-2);
+    border-radius: 9px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.75;
+    color: var(--muted);
+    white-space: pre-line;
+  }
+  .step2-verdict.show { display: block; }
+  .step2-verdict b { color: var(--text); font-weight: 600; }
+  .step2-verdict .em { color: var(--accent); }
+  .step2-verdict .head { font-weight: 700; letter-spacing: .06em; display: block; margin-bottom: 6px; }
+
   /* ---- スマホ最適化 ---- */
   @media (max-width: 560px) {
     .wrap { padding: 20px 14px calc(40px + env(safe-area-inset-bottom)); }
@@ -411,6 +439,16 @@
       <span class="tag"><span class="chip"></span><span id="tagtext"></span></span>
       <div class="exact" id="exact"></div>
       <pre class="work" id="work"></pre>
+
+      <div class="step2" id="step2">
+        <p class="step2-q" id="step2q"></p>
+        <div class="step2-opts" id="step2opts">
+          <button class="opt-btn" data-call="1" type="button">コールできる</button>
+          <button class="opt-btn" data-call="0" type="button">降りる</button>
+        </div>
+        <div class="step2-verdict" id="step2verdict"></div>
+      </div>
+
       <div class="nextrow">
         <button class="ghost" id="next" type="button">次の問題 →</button>
       </div>
@@ -466,7 +504,7 @@
   var RANKS = ["A","K","Q","J","T","9","8","7","6","5","4","3","2"];
 
   // ---- state ----
-  var state = { mode: "odds", count: 0, correct: 0, streak: 0, current: null, answered: false };
+  var state = { mode: "odds", count: 0, correct: 0, streak: 0, current: null, answered: false, step2answered: false };
 
   var el = {
     qlabel: document.getElementById("qlabel"),
@@ -481,6 +519,10 @@
     tagtext: document.getElementById("tagtext"),
     exact: document.getElementById("exact"),
     work: document.getElementById("work"),
+    step2: document.getElementById("step2"),
+    step2q: document.getElementById("step2q"),
+    step2opts: document.getElementById("step2opts"),
+    step2verdict: document.getElementById("step2verdict"),
     next: document.getElementById("next"),
     streak: document.getElementById("streak"),
     acc: document.getElementById("acc"),
@@ -490,12 +532,35 @@
   // ---- generators ----
   // Returns { label, prompt(html), ask, unit, cards(optional [{r,red}]), answer, tol, work(html) }
 
+  var ODDS_DRAWS = [
+    { name: "フラッシュドロー", outs: 9 },
+    { name: "オープンエンドのストレートドロー", outs: 8 },
+    { name: "ガットショット（インサイドストレート）", outs: 4 },
+    { name: "フラッシュ＋ストレートのコンボドロー", outs: 15 },
+    { name: "2オーバーカード", outs: 6 },
+    { name: "ペア→セットのドロー（ポケットペア）", outs: 2 }
+  ];
+
   function genOdds() {
     var pot = ri(2, 16) * 50;            // current pot
     var bet = round(pot * pick([0.33, 0.5, 0.66, 0.75, 1]), 0); // villain bet
     var toCall = bet;
     var finalPot = pot + bet + toCall;   // pot after we call
     var need = toCall / finalPot * 100;
+
+    // --- ステップ2: あなたのドローで必要勝率に届くか（コール/フォールド判断） ---
+    // 2/4ルールの概算勝率 vs 必要勝率。判断が揺るがないよう、差が4%以上の組合せを選ぶ。
+    var draw, street, mult, equity;
+    for (var t = 0; t < 40; t++) {
+      draw = pick(ODDS_DRAWS);
+      street = pick(["turn", "river"]);   // turn: あと2枚 ×4 / river: あと1枚 ×2
+      mult = street === "turn" ? 4 : 2;
+      equity = draw.outs * mult;
+      if (Math.abs(equity - need) >= 4) break;
+    }
+    var canCall = equity >= need;
+    var streetJa = street === "turn" ? "フロップ（あと2枚めくれる）" : "ターン（あと1枚めくれる）";
+
     return {
       label: "POT ODDS",
       prompt: "ポットは <b>" + pot + "</b>。相手が <b>" + bet + "</b> をベットした。",
@@ -507,7 +572,18 @@
         "コール額 = <b>" + toCall + "</b>\n" +
         "コール後の総ポット = " + pot + " + " + bet + " + " + toCall + " = <b>" + finalPot + "</b>\n" +
         "必要勝率 = コール額 ÷ 総ポット\n" +
-        "         = " + toCall + " ÷ " + finalPot + " = <span class='em'>" + round(need, 1) + "%</span>"
+        "         = " + toCall + " ÷ " + finalPot + " = <span class='em'>" + round(need, 1) + "%</span>",
+      step2: {
+        question: "現在 <b>" + streetJa + "</b>。あなたのドローは <b>" + draw.name +
+          "</b>（アウツ " + draw.outs + " 枚）。この必要勝率、あなたの勝率で足りている？",
+        canCall: canCall,
+        work:
+          "概算勝率（2/4ルール） = アウツ " + draw.outs + " × " + mult +
+          "（" + (street === "turn" ? "あと2枚" : "あと1枚") + "） = <b>" + equity + "%</b>\n" +
+          "必要勝率 = <b>" + round(need, 1) + "%</b>\n" +
+          "<span class='em'>" + equity + "% " + (canCall ? "≥" : "&lt;") + " " + round(need, 1) + "%</span> → " +
+          (canCall ? "勝率が上回る → <b>コールできる（+EV）</b>" : "勝率が届かない → <b>降りる（−EV）</b>")
+      }
     };
   }
 
@@ -669,6 +745,11 @@
     el.input.value = "";
     el.verdict.className = "verdict";
     el.submit.disabled = false;
+    state.step2answered = false;
+    el.step2.className = "step2";
+    el.step2verdict.className = "step2-verdict";
+    el.step2verdict.innerHTML = "";
+    el.next.style.display = "";
 
     if (q.cards) {
       el.cards.style.display = "flex";
@@ -701,6 +782,55 @@
     el.work.innerHTML = q.work;
     el.submit.disabled = true;
     state.answered = true;
+
+    if (q.step2) {
+      showStep2(q.step2);
+    } else {
+      el.next.style.display = "";
+      el.next.focus();
+    }
+  }
+
+  // ---- ステップ2: アウツで必要勝率に届くか（コール/フォールド判断） ----
+  function showStep2(s2) {
+    state.step2answered = false;
+    el.next.style.display = "none";
+    el.step2q.innerHTML = s2.question;
+    el.step2verdict.className = "step2-verdict";
+    el.step2verdict.innerHTML = "";
+    Array.prototype.forEach.call(el.step2opts.querySelectorAll(".opt-btn"), function (b) {
+      b.disabled = false;
+      b.className = "opt-btn";
+      b.textContent = b.getAttribute("data-call") === "1" ? "コールできる" : "降りる";
+    });
+    el.step2.className = "step2 show";
+  }
+
+  function gradeStep2(choseCall) {
+    if (!state.answered || state.step2answered) return;
+    var s2 = state.current.step2;
+    if (!s2) return;
+    var ok = (choseCall === s2.canCall);
+
+    state.count++;
+    if (ok) { state.correct++; state.streak++; } else { state.streak = 0; }
+    renderStats();
+
+    Array.prototype.forEach.call(el.step2opts.querySelectorAll(".opt-btn"), function (b) {
+      var isCall = b.getAttribute("data-call") === "1";
+      var correctBtn = (isCall === s2.canCall);
+      b.classList.add(correctBtn ? "v-right" : "v-bad");
+      b.innerHTML = (correctBtn ? "⭕ " : "") + (isCall ? "コールできる" : "降りる");
+      b.disabled = true;
+      if (isCall === choseCall) b.classList.add("chosen");
+    });
+
+    el.step2verdict.innerHTML =
+      '<span class="head" style="color:' + (ok ? "var(--good)" : "var(--call)") + '">' +
+      (ok ? "⭕ 正解" : "❌ 不正解") + "</span>" + s2.work;
+    el.step2verdict.className = "step2-verdict show";
+    state.step2answered = true;
+    el.next.style.display = "";
     el.next.focus();
   }
 
@@ -886,6 +1016,11 @@
   // ---- events ----
   el.form.addEventListener("submit", function (e) { e.preventDefault(); check(); });
   el.next.addEventListener("click", newQuestion);
+  el.step2opts.addEventListener("click", function (e) {
+    var b = e.target.closest(".opt-btn");
+    if (!b || b.disabled) return;
+    gradeStep2(b.getAttribute("data-call") === "1");
+  });
   $("scnOptions").addEventListener("click", function (e) {
     var b = e.target.closest(".opt-btn");
     if (!b || b.disabled) return;
@@ -913,6 +1048,8 @@
       return;
     }
     if (state.answered && document.activeElement !== el.input) {
+      // ステップ2がまだ未回答なら、Enterで次へ進めない（コール/フォールド待ち）
+      if (state.current && state.current.step2 && !state.step2answered) return;
       e.preventDefault(); newQuestion();
     }
   });
